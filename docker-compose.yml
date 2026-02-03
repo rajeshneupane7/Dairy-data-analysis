@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # --- Backend Service ---
+  backend:
+    build: ./backend
+    container_name: dairy_backend_container
+    # This 'hostname' ensures the name 'backend' definitely exists on the network
+    hostname: backend 
+    ports:
+      - "8000:8000"
+    networks:
+      - dairy_network
+
+  # --- Frontend Service ---
+  frontend:
+    build: ./frontend
+    container_name: dairy_frontend_container
+    ports:
+      - "8501:8501"
+    environment:
+      # This URL must match the service name or hostname above
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - dairy_network
+
+# --- Network Definition ---
+networks:
+  dairy_network:
+    driver: bridge
