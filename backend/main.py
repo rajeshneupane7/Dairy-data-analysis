@@ -39,12 +39,15 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Standardization Error: {e}")
 
-    processed_df = processed_df.replace([np.inf, -np.inf], 0)
-    processed_df = processed_df.where(pd.notnull(processed_df), None)
+    # Replace infinities and NaNs with finite values before JSON serialization
+    processed_df = processed_df.replace([np.inf, -np.inf], np.nan)
 
     # Round all float columns to prevent "out of range" JSON errors
     for col in processed_df.select_dtypes(include=[np.number]).columns:
         processed_df[col] = processed_df[col].round(4)
+
+    # After rounding, fill any remaining NaNs with 0 so JSON encoding never sees NaN/inf
+    processed_df = processed_df.fillna(0)
 
     return {
         "filename": file.filename,
