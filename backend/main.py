@@ -81,7 +81,7 @@ async def generate_insights(req: InsightRequest):
 
     try:
         payload = {
-            "model": "llama3",
+            "model": "llama3.2",
             "prompt": prompt,
             "format": "json",
             "stream": False
