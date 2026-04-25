@@ -6,7 +6,7 @@ import numpy as np
 import requests
 import json
 
-from data_processor import standardize_columns 
+from data_processor import standardize_columns, generate_smart_alerts 
 
 # --- Pydantic Model for Insights Request ---
 class InsightRequest(BaseModel):
@@ -49,11 +49,14 @@ async def upload_file(file: UploadFile = File(...)):
     # After rounding, fill any remaining NaNs with 0 so JSON encoding never sees NaN/inf
     processed_df = processed_df.fillna(0)
 
+    alerts = generate_smart_alerts(processed_df)
+
     return {
         "filename": file.filename,
         "rows": len(processed_df),
         "columns": list(processed_df.columns),
-        "data": processed_df.to_dict(orient="records")
+        "data": processed_df.to_dict(orient="records"),
+        "alerts": alerts
     }
 
 @app.post("/generate_insights")
@@ -93,9 +96,18 @@ async def generate_insights(req: InsightRequest):
         print(f"Raw Ollama response: {ollama_response_json}") # Debug print
         # The response from Ollama is a JSON string in the 'response' field
         # We need to parse this inner JSON
-        insights_json = json.loads(ollama_response_json["response"])
+        insights_data = json.loads(ollama_response_json["response"])
         
-        return insights_json
+        # Normalize the response to always be a list
+        if isinstance(insights_data, dict):
+            # Look for common wrapper keys
+            for key in ["result", "visualizations", "insights", "data"]:
+                if key in insights_data and isinstance(insights_data[key], list):
+                    return insights_data[key]
+            # If it's a dict but no known list key is found, return as a single-item list or empty
+            return [insights_data] if insights_data else []
+        
+        return insights_data
 
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Could not connect to the AI model: {e}")
